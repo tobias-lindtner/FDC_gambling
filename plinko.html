@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FDC - Friedrich-Dessauer-Casino</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: #0b0e11;
+            --primary-green: #53fc18;
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --border: #1a1c20;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Header UI --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 30px 50px; 
+            background: var(--bg-color);
+            border-bottom: 1px solid #111;
+        }
+
+        .branding {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .logo-img {
+            height: 100px; 
+        }
+
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 320px; 
+        }
+
+        .main-title {
+            font-size: 72px; 
+            font-weight: 900;
+            line-height: 0.9;
+            letter-spacing: -2px;
+            color: var(--primary-green);
+            margin: 0;
+        }
+
+        .sub-title {
+            font-size: 13.5px; 
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--primary-green); 
+            text-align: justify;
+            text-align-last: justify; 
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        /* --- Game Elements --- */
+        main {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 24px;
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+
+        #ui-panel {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .stat-box {
+            background: #000;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-green);
+        }
+
+        #drop-btn {
+            background: var(--primary-green);
+            color: #000;
+            border: none;
+            padding: 20px;
+            border-radius: 8px;
+            font-weight: 900;
+            font-size: 18px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        #canvas-wrapper {
+            background: #000;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        #history {
+            background: #000;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #111;
+        }
+
+        .mute-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="branding">
+        <img src="C:\Users\TLind\Downloads\Schule\schizo\FDC_gambling\IMG-20260507-WA0001.jpg" alt="FDC Logo" class="logo-img">
+        <div class="brand-text">
+            <div class="main-title">FD₵</div>
+            <div class="sub-title">Friedrich-Dessauer-Casino</div>
+        </div>
+    </div>
+    <button class="mute-toggle" onclick="toggleMute()" id="mute-btn">🔊 SOUND ON</button>
+</header>
+
+<main>
+    <div id="game-container">
+        <div id="ui-panel">
+            <div class="stat-box">
+                <div class="label" style="font-size: 10px; color: var(--text-dim); text-transform: uppercase;">Balance</div>
+                <div id="balance" class="value">$10,000.00</div>
+            </div>
+
+            <div class="bet-controls">
+                <input type="number" id="bet-input" value="100" style="width:100%; background:#000; border:1px solid #333; color:#fff; padding:12px; border-radius:6px; margin-bottom:10px;">
+                <div class="presets" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px;">
+                    <button class="preset-btn" onclick="setBet(10)" style="background:#222; color:#fff; border:none; padding:8px; cursor:pointer;">$10</button>
+                    <button class="preset-btn" onclick="setBet(50)" style="background:#222; color:#fff; border:none; padding:8px; cursor:pointer;">$50</button>
+                    <button class="preset-btn" onclick="setBet(100)" style="background:#222; color:#fff; border:none; padding:8px; cursor:pointer;">$100</button>
+                </div>
+            </div>
+
+            <button id="drop-btn">DROP BALL</button>
+
+            <div id="history"></div>
+        </div>
+
+        <div id="canvas-wrapper">
+            <div id="plinko-board"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+    let isMuted = false;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function toggleMute() {
+        isMuted = !isMuted;
+        document.getElementById('mute-btn').innerText = isMuted ? "🔇 MUTED" : "🔊 SOUND ON";
+    }
+
+    function playTone(freq, type, duration, vol) {
+        if (isMuted) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    const sounds = {
+        node: () => playTone(500 + Math.random() * 200, 'sine', 0.08, 0.03),
+        win: () => { playTone(600, 'sine', 0.2, 0.1); setTimeout(() => playTone(900, 'sine', 0.3, 0.1), 80); },
+        lose: () => playTone(180, 'sine', 0.4, 0.05)
+    };
+
+    const config = {
+        width: 600,
+        height: 650,
+        rows: 15,
+        ballRadius: 7,
+        multipliers: [6, 3, 1.5, 1, 0.5, 0.3, 0.2, 0.3, 0.5, 1, 1.5, 3, 6],
+        gravity: 1.2,
+        restitution: 0.5,
+        friction: 0.01,
+        dragTop: 0.01,
+        dragBottom: 0.08
+    };
+
+    let balance = 10000;
+    const { Engine, Render, Runner, Bodies, Composite, Events, Body, Vector } = Matter;
+    
+    const engine = Engine.create();
+    engine.world.gravity.y = config.gravity;
+
+    const render = Render.create({
+        element: document.getElementById('plinko-board'),
+        engine: engine,
+        options: { width: config.width, height: config.height, wireframes: false, background: 'transparent' }
+    });
+
+    const centerX = config.width / 2;
+    const spacing = 38;
+
+    for (let i = 0; i < config.rows; i++) {
+        const rowPins = i + 3;
+        const rowWidth = (rowPins - 1) * spacing;
+        for (let j = 0; j < rowPins; j++) {
+            const pin = Bodies.circle(centerX - rowWidth/2 + j*spacing, 60 + i*spacing, 3.5, {
+                isStatic: true,
+                label: 'pin',
+                render: { fillStyle: '#334155' }
+            });
+            Composite.add(engine.world, pin);
+        }
+    }
+
+    const bWidth = config.width / config.multipliers.length;
+    config.multipliers.forEach((m, i) => {
+        const bucket = Bodies.rectangle(i * bWidth + bWidth/2, config.height - 25, bWidth - 6, 40, {
+            isStatic: true, isSensor: true, label: `m-${m}`, render: { fillStyle: '#111' }
+        });
+        Composite.add(engine.world, bucket);
+    });
+
+    Render.run(render);
+    Runner.run(Runner.create(), engine);
+
+    Events.on(engine, 'beforeUpdate', () => {
+        const balls = Composite.allBodies(engine.world).filter(b => b.label === 'ball');
+        balls.forEach(ball => {
+            const progress = Math.min(Math.max((ball.position.y - 60) / (config.height - 150), 0), 1);
+            ball.frictionAir = config.dragTop + (progress * (config.dragBottom - config.dragTop));
+            if (Math.abs(ball.velocity.x) > 12) {
+                Body.setVelocity(ball, { x: ball.velocity.x * 0.95, y: ball.velocity.y });
+            }
+        });
+    });
+
+    Events.on(engine, 'collisionStart', (event) => {
+        event.pairs.forEach(pair => {
+            const { bodyA, bodyB } = pair;
+            const ball = bodyA.label === 'ball' ? bodyA : (bodyB.label === 'ball' ? bodyB : null);
+            const pin = bodyA.label === 'pin' ? bodyA : (bodyB.label === 'pin' ? bodyB : null);
+            const bucket = bodyA.label.startsWith('m-') ? bodyA : (bodyB.label.startsWith('m-') ? bodyB : null);
+
+            if (ball && pin) {
+                sounds.node();
+                if (Math.abs(ball.velocity.y) < 1.2) {
+                    Body.applyForce(ball, ball.position, { x: (Math.random() - 0.5) * 0.002, y: 0.0015 });
+                }
+            }
+
+            if (ball && bucket) {
+                const mult = parseFloat(bucket.label.split('-')[1]);
+                resolveGame(ball.customBet, mult);
+                Composite.remove(engine.world, ball);
+            }
+        });
+    });
+
+    function setBet(amt) { document.getElementById('bet-input').value = amt; }
+
+    function resolveGame(bet, mult) {
+        const win = bet * mult;
+        balance += win;
+        mult >= 1 ? sounds.win() : sounds.lose();
+        document.getElementById('balance').innerText = `$${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        const color = mult >= 1.5 ? '#53fc18' : (mult === 1 ? '#fff' : '#475569');
+        item.innerHTML = `<span>${mult}x</span><span style="color:${color}">$${win.toFixed(2)}</span>`;
+        const history = document.getElementById('history');
+        history.prepend(item);
+        if(history.children.length > 10) history.removeChild(history.lastChild);
+    }
+
+    document.getElementById('drop-btn').addEventListener('click', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const bet = parseFloat(document.getElementById('bet-input').value);
+        if (bet > balance || bet <= 0 || isNaN(bet)) return;
+        balance -= bet;
+        document.getElementById('balance').innerText = `$${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
+        const ball = Bodies.circle(centerX + (Math.random() * 8 - 4), 20, config.ballRadius, {
+            restitution: config.restitution,
+            friction: config.friction,
+            label: 'ball',
+            customBet: bet,
+            render: { fillStyle: '#53fc18' }
+        });
+        Composite.add(engine.world, ball);
+    });
+
+    Events.on(render, 'afterRender', () => {
+        const ctx = render.context;
+        ctx.font = 'bold 12px Inter';
+        ctx.textAlign = 'center';
+        config.multipliers.forEach((m, i) => {
+            ctx.fillStyle = m >= 1.5 ? '#53fc18' : (m === 1 ? '#fff' : '#444');
+            ctx.fillText(`${m}x`, i * bWidth + bWidth/2, config.height - 20);
+        });
+    });
+</script>
+</body>
+</html>
